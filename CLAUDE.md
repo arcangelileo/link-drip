@@ -42,14 +42,14 @@ Phase: DEVELOPMENT
 - [x] Create project structure (pyproject.toml, src/app layout, configs)
 - [x] Set up FastAPI app skeleton with health check and config
 - [x] Set up database models (User, Link, Click) and Alembic migrations
-- [ ] Implement user registration and login (JWT auth, httponly cookies)
-- [ ] Build auth-protected dashboard layout and base templates (Tailwind CSS)
-- [ ] Implement link creation (auto-slug + custom slug, URL validation)
+- [x] Implement user registration and login (JWT auth, httponly cookies)
+- [x] Build auth-protected dashboard layout and base templates (Tailwind CSS)
+- [x] Implement link creation (auto-slug + custom slug, URL validation)
 - [ ] Build public redirect endpoint with click tracking
 - [ ] Implement click metadata capture (GeoIP, user-agent parsing, referrer)
 - [ ] Build per-link analytics page (charts, tables for referrers/countries/devices)
 - [ ] Implement QR code generation endpoint
-- [ ] Add link tagging, filtering, and search on dashboard
+- [x] Add link tagging, filtering, and search on dashboard
 - [ ] Implement CSV export of click data
 - [ ] Write comprehensive tests (auth, links, redirects, analytics)
 - [ ] Write Dockerfile and docker-compose.yml
@@ -70,6 +70,21 @@ Phase: DEVELOPMENT
 - Built professional landing page with Tailwind CSS (features, pricing sections)
 - Set up test infrastructure (in-memory SQLite, async httpx client)
 - All tests passing (2/2)
+
+### Session 3 — AUTH, DASHBOARD & LINK CREATION
+- Implemented user registration with form validation (email, password strength, display name)
+- Implemented login with JWT httponly cookie auth and bcrypt password hashing
+- Built auth dependency (get_current_user / get_optional_user) for route protection
+- Created professional registration and login pages with Tailwind CSS
+- Built auth-protected dashboard with sticky nav, user avatar, and logout
+- Implemented link creation with auto-generated base62 slugs and custom slug support
+- Full URL validation (http/https only, valid domain required)
+- Link tagging (comma-separated), search by title/slug/URL, filter by tag
+- Link deletion with confirmation dialog
+- Copy-to-clipboard for short URLs
+- Empty states and error states throughout
+- Create link modal with form validation and error feedback
+- All 36 tests passing (auth: 19, health: 2, links: 15)
 
 ## Known Issues
 (none yet)
@@ -92,29 +107,42 @@ src/
     __init__.py
     config.py          # Pydantic Settings configuration
     database.py        # Async SQLAlchemy engine and session
+    dependencies.py    # Auth dependencies (get_current_user, get_optional_user)
     main.py            # FastAPI app entry point
     api/
       __init__.py
+      auth.py          # Registration, login, logout routes
+      dashboard.py     # Dashboard & link CRUD routes
       health.py        # Health check endpoint
       pages.py         # Landing page route
     models/
-      __init__.py
+      __init__.py      # Model imports (User, Link, Click)
       user.py          # User model
       link.py          # Link model
       click.py         # Click model
     schemas/
       __init__.py
+      auth.py          # RegisterRequest, LoginRequest, UserResponse
+      link.py          # LinkCreateRequest, LinkResponse
     services/
       __init__.py
+      auth.py          # Password hashing, JWT, user CRUD
+      links.py         # Slug generation, link CRUD, search/filter
     templates/
       layouts/
         base.html      # Base template (Tailwind CSS + Inter font)
+        dashboard.html # Dashboard layout (nav, user menu)
       pages/
+        dashboard.html # Dashboard page (link list, create modal)
         landing.html   # Public landing page
+        login.html     # Login page
+        register.html  # Registration page
     static/
       .gitkeep
 tests/
   __init__.py
   conftest.py          # Test fixtures (in-memory DB, async client)
+  test_auth.py         # Auth tests (register, login, logout, JWT)
   test_health.py       # Health check and landing page tests
+  test_links.py        # Link creation, dashboard, delete tests
 ```

@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from src.app.database import Base, get_db
 from src.app.main import app
+from src.app.models import Click, Link, User  # noqa: F401 — ensure models are registered
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
 

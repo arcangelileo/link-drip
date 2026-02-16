@@ -3,10 +3,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from src.app.api.auth import router as auth_router
+from src.app.api.dashboard import router as dashboard_router
 from src.app.api.health import router as health_router
 from src.app.api.pages import router as pages_router
 from src.app.config import settings
 from src.app.database import Base, engine
+from src.app.models import Click, Link, User  # noqa: F401 — register models
 
 
 @asynccontextmanager
@@ -28,3 +31,5 @@ app.mount("/static", StaticFiles(directory="src/app/static"), name="static")
 
 app.include_router(health_router)
 app.include_router(pages_router)
+app.include_router(auth_router)
+app.include_router(dashboard_router)

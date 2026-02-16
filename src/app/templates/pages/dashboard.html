@@ -1,0 +1,294 @@
+{% extends "layouts/dashboard.html" %}
+
+{% block title %}Dashboard — LinkDrip{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Your Links</h1>
+        <p class="mt-1 text-sm text-gray-500">{{ links|length }} link{{ 's' if links|length != 1 else '' }} total</p>
+    </div>
+    <button
+        onclick="document.getElementById('create-modal').classList.remove('hidden')"
+        class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 transition-all shadow-sm"
+    >
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Create Link
+    </button>
+</div>
+
+<!-- Search & Filter Bar -->
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 mb-6">
+    <form method="GET" action="/dashboard" class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1 relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+                type="text"
+                name="search"
+                value="{{ search }}"
+                placeholder="Search links by title, slug, or URL..."
+                class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all"
+            >
+        </div>
+        {% if all_tags %}
+        <select name="tag" class="px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white transition-all">
+            <option value="">All tags</option>
+            {% for t in all_tags %}
+            <option value="{{ t }}" {% if active_tag == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+        <button type="submit" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+            Search
+        </button>
+        {% if search or active_tag %}
+        <a href="/dashboard" class="px-5 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-xl hover:bg-gray-50 transition-colors text-center">
+            Clear
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Form Errors -->
+{% if form_errors %}
+<div class="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+    <div class="flex items-start">
+        <svg class="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+            {% for err in form_errors %}
+            <p class="text-sm text-red-700">{{ err }}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Links List -->
+{% if links %}
+<div class="space-y-3">
+    {% for link in links %}
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+            <!-- Link Info -->
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                    {% if link.title %}
+                    <h3 class="text-sm font-semibold text-gray-900 truncate">{{ link.title }}</h3>
+                    {% endif %}
+                    {% if link.tags %}
+                    <div class="flex flex-wrap gap-1">
+                        {% for tag in link.tags.split(',') %}
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">{{ tag.strip() }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-2 group">
+                    <a href="{{ link.short_url }}" target="_blank" class="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors truncate">
+                        {{ link.short_url }}
+                    </a>
+                    <button
+                        onclick="copyToClipboard('{{ link.short_url }}', this)"
+                        class="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors flex-shrink-0"
+                        title="Copy short URL"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                    <span class="copy-feedback text-xs text-green-600 font-medium">Copied!</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500 truncate">
+                    <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    {{ link.target_url }}
+                </p>
+            </div>
+
+            <!-- Stats & Actions -->
+            <div class="flex items-center gap-4 sm:gap-6 flex-shrink-0">
+                <!-- Click Count -->
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-gray-900">{{ link.click_count }}</p>
+                    <p class="text-xs text-gray-500">click{{ 's' if link.click_count != 1 else '' }}</p>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-1">
+                    <a href="/dashboard/links/{{ link.id }}/analytics" class="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Analytics">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </a>
+                    <a href="/dashboard/links/{{ link.id }}/qr" class="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="QR Code">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        </svg>
+                    </a>
+                    <form method="POST" action="/dashboard/links/{{ link.id }}/delete" onsubmit="return confirm('Delete this link? This cannot be undone.')">
+                        <button type="submit" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<!-- Empty State -->
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
+    <div class="w-16 h-16 bg-brand-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+    </div>
+    {% if search or active_tag %}
+    <h3 class="text-lg font-semibold text-gray-900 mb-1">No links found</h3>
+    <p class="text-sm text-gray-500 mb-6">Try adjusting your search or filter criteria.</p>
+    <a href="/dashboard" class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+        Clear filters
+    </a>
+    {% else %}
+    <h3 class="text-lg font-semibold text-gray-900 mb-1">No links yet</h3>
+    <p class="text-sm text-gray-500 mb-6">Create your first short link to get started tracking clicks.</p>
+    <button
+        onclick="document.getElementById('create-modal').classList.remove('hidden')"
+        class="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 transition-all shadow-sm"
+    >
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Create your first link
+    </button>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Create Link Modal -->
+<div id="create-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 py-6">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onclick="document.getElementById('create-modal').classList.add('hidden')"></div>
+
+        <!-- Modal -->
+        <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 sm:p-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-gray-900">Create a new link</h2>
+                <button onclick="document.getElementById('create-modal').classList.add('hidden')" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <form method="POST" action="/dashboard/links" class="space-y-5">
+                <div>
+                    <label for="target_url" class="block text-sm font-medium text-gray-700 mb-1.5">
+                        Destination URL <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="url"
+                        id="target_url"
+                        name="target_url"
+                        required
+                        value="{{ form_data.target_url if form_data else '' }}"
+                        class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all placeholder-gray-400"
+                        placeholder="https://example.com/your-long-url"
+                    >
+                </div>
+
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-gray-400 font-normal">(optional)</span></label>
+                    <input
+                        type="text"
+                        id="title"
+                        name="title"
+                        value="{{ form_data.title if form_data else '' }}"
+                        class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all placeholder-gray-400"
+                        placeholder="My campaign link"
+                    >
+                </div>
+
+                <div>
+                    <label for="custom_slug" class="block text-sm font-medium text-gray-700 mb-1.5">Custom slug <span class="text-gray-400 font-normal">(optional)</span></label>
+                    <div class="flex items-center">
+                        <span class="text-sm text-gray-500 mr-2 flex-shrink-0">{{ app_url }}/</span>
+                        <input
+                            type="text"
+                            id="custom_slug"
+                            name="custom_slug"
+                            value="{{ form_data.custom_slug if form_data else '' }}"
+                            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all placeholder-gray-400"
+                            placeholder="my-link"
+                            pattern="[a-zA-Z0-9-]+"
+                        >
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Leave blank to auto-generate. 3-50 chars, letters, numbers & hyphens.</p>
+                </div>
+
+                <div>
+                    <label for="tags" class="block text-sm font-medium text-gray-700 mb-1.5">Tags <span class="text-gray-400 font-normal">(optional)</span></label>
+                    <input
+                        type="text"
+                        id="tags"
+                        name="tags"
+                        value="{{ form_data.tags if form_data else '' }}"
+                        class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all placeholder-gray-400"
+                        placeholder="marketing, social, campaign"
+                    >
+                    <p class="mt-1 text-xs text-gray-500">Comma-separated tags for organization.</p>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button
+                        type="button"
+                        onclick="document.getElementById('create-modal').classList.add('hidden')"
+                        class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="px-5 py-2.5 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 transition-all shadow-sm"
+                    >
+                        Create Link
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if form_errors %}
+<script>
+    // Auto-open modal when there are form errors
+    document.getElementById('create-modal').classList.remove('hidden');
+</script>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(function() {
+        const feedback = btn.nextElementSibling;
+        feedback.classList.add('show');
+        setTimeout(function() {
+            feedback.classList.remove('show');
+        }, 1500);
+    });
+}
+</script>
+{% endblock %}
