@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_URL=http://localhost:8000
+      - SECRET_KEY=${SECRET_KEY:-change-me-to-a-random-secret-key}
+      - DATABASE_URL=sqlite+aiosqlite:///./data/linkdrip.db
+      - DEBUG=${DEBUG:-false}
+    volumes:
+      - linkdrip-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  linkdrip-data:

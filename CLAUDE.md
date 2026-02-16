@@ -1,6 +1,6 @@
 # LinkDrip
 
-Phase: DEVELOPMENT
+Phase: QA
 
 ## Project Spec
 - **Repo**: https://github.com/arcangelileo/link-drip
@@ -48,12 +48,12 @@ Phase: DEVELOPMENT
 - [x] Build public redirect endpoint with click tracking
 - [x] Implement click metadata capture (GeoIP, user-agent parsing, referrer)
 - [x] Build per-link analytics page (charts, tables for referrers/countries/devices)
-- [ ] Implement QR code generation endpoint
+- [x] Implement QR code generation endpoint
 - [x] Add link tagging, filtering, and search on dashboard
 - [x] Implement CSV export of click data
-- [x] Write comprehensive tests (auth, links, redirects, analytics)
-- [ ] Write Dockerfile and docker-compose.yml
-- [ ] Write README with setup and deploy instructions
+- [x] Write comprehensive tests (auth, links, redirects, analytics, QR codes)
+- [x] Write Dockerfile and docker-compose.yml
+- [x] Write README with setup and deploy instructions
 
 ## Progress Log
 ### Session 1 — IDEATION
@@ -101,6 +101,18 @@ Phase: DEVELOPMENT
 - Auth guards on analytics and CSV export (owner-only access)
 - All 60 tests passing (analytics: 17, auth: 19, health: 2, links: 15, redirect: 7)
 
+### Session 5 — QR CODES, DOCKER & README
+- Implemented QR code generation with `qrcode[pil]` library (brand-colored, high error correction)
+- QR code page (`/dashboard/links/{id}/qr`) with preview, download PNG button, and copy link
+- QR code PNG endpoint (`/dashboard/links/{id}/qr.png`) serving raw image with proper headers
+- Auth guards on both QR endpoints (owner-only access)
+- Professional QR page UI matching existing Tailwind CSS design with breadcrumb navigation
+- Multi-stage Dockerfile with non-root user, health check, and optimized layer caching
+- docker-compose.yml with named volume for SQLite persistence
+- Comprehensive README with setup instructions (local dev + Docker), configuration table, project structure, and API endpoints
+- All 68 tests passing (analytics: 25 incl. 8 QR tests, auth: 19, health: 2, links: 15, redirect: 7)
+- All backlog items complete — Phase changed to QA
+
 ## Known Issues
 (none yet)
 
@@ -111,6 +123,9 @@ Phase: DEVELOPMENT
 pyproject.toml
 alembic.ini
 CLAUDE.md
+README.md
+Dockerfile
+docker-compose.yml
 alembic/
   env.py
   script.py.mako
@@ -126,7 +141,7 @@ src/
     main.py            # FastAPI app entry point
     api/
       __init__.py
-      analytics.py     # Per-link analytics page & CSV export
+      analytics.py     # Per-link analytics, CSV export & QR code endpoints
       auth.py          # Registration, login, logout routes
       dashboard.py     # Dashboard & link CRUD routes
       health.py        # Health check endpoint
@@ -156,13 +171,14 @@ src/
         dashboard.html # Dashboard page (link list, create modal)
         landing.html   # Public landing page
         login.html     # Login page
+        qr.html        # QR code page (preview, download)
         register.html  # Registration page
     static/
       .gitkeep
 tests/
   __init__.py
   conftest.py          # Test fixtures (in-memory DB, async client)
-  test_analytics.py     # Analytics, click stats, CSV export, UA parsing tests
+  test_analytics.py     # Analytics, click stats, CSV export, QR code, UA parsing tests
   test_auth.py         # Auth tests (register, login, logout, JWT)
   test_health.py       # Health check and landing page tests
   test_links.py        # Link creation, dashboard, delete tests

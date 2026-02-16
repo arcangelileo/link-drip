@@ -345,3 +345,128 @@ class TestCSVExport:
             cookies={"access_token": token2},
         )
         assert response.status_code == 404
+
+
+class TestQRCode:
+    async def _register_and_get_token(self, client, email="qr@example.com"):
+        response = await client.post(
+            "/register",
+            data={
+                "email": email,
+                "password": "TestPass1",
+                "display_name": "QR User",
+            },
+            follow_redirects=False,
+        )
+        return response.cookies.get("access_token")
+
+    @pytest.mark.asyncio
+    async def test_qr_page_loads(self, client):
+        token = await self._register_and_get_token(client)
+
+        await client.post(
+            "/dashboard/links",
+            data={
+                "target_url": "https://example.com/qr-test",
+                "title": "QR Test Link",
+                "custom_slug": "qr-test",
+            },
+            cookies={"access_token": token},
+            follow_redirects=False,
+        )
+
+        response = await client.get(
+            "/dashboard/links/1/qr",
+            cookies={"access_token": token},
+        )
+        assert response.status_code == 200
+        assert "QR Code" in response.text
+        assert "QR Test Link" in response.text
+        assert "qr.png" in response.text
+        assert "Download PNG" in response.text
+
+    @pytest.mark.asyncio
+    async def test_qr_image_returns_png(self, client):
+        token = await self._register_and_get_token(client, email="qrimg@example.com")
+
+        await client.post(
+            "/dashboard/links",
+            data={
+                "target_url": "https://example.com/qr-img-test",
+                "custom_slug": "qr-img",
+            },
+            cookies={"access_token": token},
+            follow_redirects=False,
+        )
+
+        response = await client.get(
+            "/dashboard/links/1/qr.png",
+            cookies={"access_token": token},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        assert "qr-img" in response.headers["content-disposition"]
+        # Check PNG magic bytes
+        assert response.content[:4] == b"\x89PNG"
+
+    @pytest.mark.asyncio
+    async def test_qr_page_requires_auth(self, client):
+        response = await client.get("/dashboard/links/1/qr")
+        assert response.status_code in (401, 403)
+
+    @pytest.mark.asyncio
+    async def test_qr_image_requires_auth(self, client):
+        response = await client.get("/dashboard/links/1/qr.png")
+        assert response.status_code in (401, 403)
+
+    @pytest.mark.asyncio
+    async def test_qr_page_wrong_user(self, client):
+        token1 = await self._register_and_get_token(client, email="qrowner@example.com")
+        await client.post(
+            "/dashboard/links",
+            data={"target_url": "https://example.com/qr-private"},
+            cookies={"access_token": token1},
+            follow_redirects=False,
+        )
+
+        token2 = await self._register_and_get_token(client, email="qrthief@example.com")
+        response = await client.get(
+            "/dashboard/links/1/qr",
+            cookies={"access_token": token2},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_qr_image_wrong_user(self, client):
+        token1 = await self._register_and_get_token(client, email="qrimgowner@example.com")
+        await client.post(
+            "/dashboard/links",
+            data={"target_url": "https://example.com/qr-img-private"},
+            cookies={"access_token": token1},
+            follow_redirects=False,
+        )
+
+        token2 = await self._register_and_get_token(client, email="qrimgthief@example.com")
+        response = await client.get(
+            "/dashboard/links/1/qr.png",
+            cookies={"access_token": token2},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_qr_nonexistent_link(self, client):
+        token = await self._register_and_get_token(client, email="qrnolink@example.com")
+        response = await client.get(
+            "/dashboard/links/999/qr",
+            cookies={"access_token": token},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_qr_image_nonexistent_link(self, client):
+        token = await self._register_and_get_token(client, email="qrimgnolink@example.com")
+        response = await client.get(
+            "/dashboard/links/999/qr.png",
+            cookies={"access_token": token},
+        )
+        assert response.status_code == 404
