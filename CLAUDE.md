@@ -45,13 +45,13 @@ Phase: DEVELOPMENT
 - [x] Implement user registration and login (JWT auth, httponly cookies)
 - [x] Build auth-protected dashboard layout and base templates (Tailwind CSS)
 - [x] Implement link creation (auto-slug + custom slug, URL validation)
-- [ ] Build public redirect endpoint with click tracking
-- [ ] Implement click metadata capture (GeoIP, user-agent parsing, referrer)
-- [ ] Build per-link analytics page (charts, tables for referrers/countries/devices)
+- [x] Build public redirect endpoint with click tracking
+- [x] Implement click metadata capture (GeoIP, user-agent parsing, referrer)
+- [x] Build per-link analytics page (charts, tables for referrers/countries/devices)
 - [ ] Implement QR code generation endpoint
 - [x] Add link tagging, filtering, and search on dashboard
-- [ ] Implement CSV export of click data
-- [ ] Write comprehensive tests (auth, links, redirects, analytics)
+- [x] Implement CSV export of click data
+- [x] Write comprehensive tests (auth, links, redirects, analytics)
 - [ ] Write Dockerfile and docker-compose.yml
 - [ ] Write README with setup and deploy instructions
 
@@ -86,6 +86,21 @@ Phase: DEVELOPMENT
 - Create link modal with form validation and error feedback
 - All 36 tests passing (auth: 19, health: 2, links: 15)
 
+### Session 4 — REDIRECT, CLICK TRACKING, ANALYTICS & CSV EXPORT
+- Built public redirect endpoint (GET /{slug}) that resolves short links to target URLs
+- Implemented click tracking inline with redirect — captures IP, referrer, user-agent
+- GeoIP integration via ip-api.com with in-memory cache (5000 entries)
+- User-agent parsing via `user-agents` library — extracts browser, OS, device type
+- Built comprehensive per-link analytics page with Chart.js line chart for clicks over time
+- Analytics dashboard shows: total clicks, top countries, referrers, browsers, OS, device breakdown
+- Recent clicks table with time, country, browser, OS, device badge, and referrer
+- Stats overview cards (total clicks, top country, top browser, top device)
+- Empty state for links with no clicks yet
+- CSV export endpoint for all click data (downloadable file)
+- Custom 404 page for nonexistent short links
+- Auth guards on analytics and CSV export (owner-only access)
+- All 60 tests passing (analytics: 17, auth: 19, health: 2, links: 15, redirect: 7)
+
 ## Known Issues
 (none yet)
 
@@ -111,10 +126,12 @@ src/
     main.py            # FastAPI app entry point
     api/
       __init__.py
+      analytics.py     # Per-link analytics page & CSV export
       auth.py          # Registration, login, logout routes
       dashboard.py     # Dashboard & link CRUD routes
       health.py        # Health check endpoint
       pages.py         # Landing page route
+      redirect.py      # Public short-link redirect with click tracking
     models/
       __init__.py      # Model imports (User, Link, Click)
       user.py          # User model
@@ -127,12 +144,15 @@ src/
     services/
       __init__.py
       auth.py          # Password hashing, JWT, user CRUD
+      clicks.py        # Click recording, GeoIP, UA parsing, analytics aggregation
       links.py         # Slug generation, link CRUD, search/filter
     templates/
       layouts/
         base.html      # Base template (Tailwind CSS + Inter font)
         dashboard.html # Dashboard layout (nav, user menu)
       pages/
+        404.html       # Custom 404 page for missing links
+        analytics.html # Per-link analytics page (charts, tables)
         dashboard.html # Dashboard page (link list, create modal)
         landing.html   # Public landing page
         login.html     # Login page
@@ -142,7 +162,9 @@ src/
 tests/
   __init__.py
   conftest.py          # Test fixtures (in-memory DB, async client)
+  test_analytics.py     # Analytics, click stats, CSV export, UA parsing tests
   test_auth.py         # Auth tests (register, login, logout, JWT)
   test_health.py       # Health check and landing page tests
   test_links.py        # Link creation, dashboard, delete tests
+  test_redirect.py     # Redirect, click tracking, 404 tests
 ```
