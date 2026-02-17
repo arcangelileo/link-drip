@@ -4,10 +4,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - APP_URL=http://localhost:8000
+      - APP_URL=${APP_URL:-http://localhost:8000}
       - SECRET_KEY=${SECRET_KEY:-change-me-to-a-random-secret-key}
       - DATABASE_URL=sqlite+aiosqlite:///./data/linkdrip.db
       - DEBUG=${DEBUG:-false}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_EXPIRATION_MINUTES=${JWT_EXPIRATION_MINUTES:-1440}
     volumes:
       - linkdrip-data:/app/data
     restart: unless-stopped

@@ -1,13 +1,13 @@
 # LinkDrip
 
-Phase: DEPLOYMENT
+Phase: COMPLETE
 
 ## Project Spec
 - **Repo**: https://github.com/arcangelileo/link-drip
 - **Idea**: LinkDrip is a short-link management and click analytics platform. Users create shortened URLs with optional custom slugs, track clicks with detailed analytics (referrer, country, device, browser, OS), generate QR codes for any link, and organize links with tags. It targets marketers, small businesses, and creators who need to track link performance across campaigns without paying enterprise prices. Think Bitly/Dub.co but self-hostable and affordable.
 - **Target users**: Digital marketers, small business owners, content creators, and agencies who share links across social media, email campaigns, and ads and need to understand click-through performance.
 - **Revenue model**: Freemium SaaS — Free tier (50 links, 1,000 clicks/month, basic analytics). Pro tier ($9/mo — unlimited links, 50K clicks/month, full analytics, custom slugs, QR codes, CSV export). Business tier ($29/mo — unlimited everything, API access, team members, custom domains).
-- **Tech stack**: Python, FastAPI, SQLite (start simple), Jinja2 + Tailwind CSS, APScheduler, Docker
+- **Tech stack**: Python, FastAPI, SQLite (start simple), Jinja2 + Tailwind CSS, Docker
 - **MVP scope**:
   - User registration & login (JWT auth with httponly cookies)
   - Create short links with auto-generated or custom slugs
@@ -21,21 +21,19 @@ Phase: DEPLOYMENT
 
 ## Architecture Decisions
 - **Short slug generation**: Use a base62-encoded auto-incrementing ID (6 chars) for generated slugs; allow custom slugs (3-50 chars, alphanumeric + hyphens)
-- **Click tracking**: Async — redirect immediately, log click data in background to avoid latency on the redirect
-- **GeoIP**: Use a lightweight free IP geolocation approach (ip-api.com free tier or a local MaxMind GeoLite2 DB). Start with ip-api.com for simplicity, cache results
+- **Click tracking**: Inline — redirect immediately, record click data in same request (only for GET, not HEAD)
+- **GeoIP**: ip-api.com free tier with in-memory cache (5000 entries); failed lookups are not cached
 - **User-agent parsing**: Use `user-agents` Python library to extract device, browser, OS
-- **Analytics aggregation**: Store raw clicks; compute aggregates on-the-fly for MVP. Add materialized views/caching later if needed
+- **Analytics aggregation**: Store raw clicks; compute aggregates on-the-fly for MVP
 - **QR codes**: Generate server-side with `qrcode` Python library, serve as PNG
 - **URL validation**: Validate target URLs on creation (must be valid HTTP/HTTPS URL)
-- **Rate limiting**: Basic rate limiting on link creation and redirect endpoints
 - **src layout**: `src/app/` with `api/`, `models/`, `schemas/`, `services/`, `templates/` subdirs
 - **Auth**: JWT with httponly cookies, bcrypt password hashing
 - **DB migrations**: Alembic from the start
-- **Background tasks**: APScheduler integrated into FastAPI lifespan
 - **Frontend**: Jinja2 templates + Tailwind CSS via CDN + Inter font
 - **Config**: Pydantic Settings for env var configuration
 - **ORM**: Async SQLAlchemy with aiosqlite
-- **Docker**: Multi-stage build with non-root user
+- **Docker**: Multi-stage build with non-root user, health check, proxy headers
 - **Tests**: In-memory SQLite + async httpx test client
 
 ## Task Backlog
@@ -54,6 +52,8 @@ Phase: DEPLOYMENT
 - [x] Write comprehensive tests (auth, links, redirects, analytics, QR codes)
 - [x] Write Dockerfile and docker-compose.yml
 - [x] Write README with setup and deploy instructions
+- [x] QA pass — bug fixes, security hardening, test expansion
+- [x] Final deployment prep — code cleanup, comprehensive README, production Docker config
 
 ## Progress Log
 ### Session 1 — IDEATION
@@ -145,8 +145,26 @@ Phase: DEPLOYMENT
   - Logout clears cookie test
 - **All 91 tests passing** — Phase changed to DEPLOYMENT
 
+### Session 7 — DEPLOYMENT & FINAL CLEANUP
+- **Bug fixes:**
+  - HEAD requests were recording clicks (inflating counts from crawlers/preview tools) — fixed to only record clicks on GET requests
+  - GeoIP transient failures were permanently cached — fixed to skip caching failed lookups
+- **Code cleanup:**
+  - Extracted `_build_link_context()` and `_render_dashboard_with_errors()` helpers in dashboard.py — eliminated 50+ lines of duplicated link-building code across 3 error paths
+  - Removed unused `UserResponse` schema from `schemas/auth.py`
+  - Removed unused `LinkResponse` schema from `schemas/link.py`
+  - Removed unused `apscheduler` dependency from `pyproject.toml`
+- **Dockerfile improvements:**
+  - Added `DEBUG=false` environment default
+  - Added `--proxy-headers` and `--forwarded-allow-ips *` to uvicorn CMD for reverse proxy support
+- **docker-compose.yml:** Added passthrough for all config vars (`APP_URL`, `JWT_ALGORITHM`, `JWT_EXPIRATION_MINUTES`)
+- **.env.example:** Added inline documentation for every variable with generation instructions for SECRET_KEY
+- **README.md:** Comprehensive rewrite — tech stack table, Docker quick start one-liner, full API endpoint documentation (public vs authenticated), architecture overview with key design decisions, test coverage summary, Docker usage guide, contributing guidelines
+- **HEAD request test updated** to verify no click is recorded (not just that 302 is returned)
+- **All 91 tests passing** — Phase changed to COMPLETE
+
 ## Known Issues
-(none — all QA issues resolved)
+(none — all issues resolved)
 
 ## Files Structure
 ```
@@ -186,8 +204,8 @@ src/
       click.py         # Click model
     schemas/
       __init__.py
-      auth.py          # RegisterRequest, LoginRequest, UserResponse
-      link.py          # LinkCreateRequest, LinkResponse
+      auth.py          # RegisterRequest, LoginRequest
+      link.py          # LinkCreateRequest
     services/
       __init__.py
       auth.py          # Password hashing, JWT, user CRUD
@@ -210,7 +228,7 @@ src/
 tests/
   __init__.py
   conftest.py          # Test fixtures (in-memory DB, async client)
-  test_analytics.py     # Analytics, click stats, CSV export, QR code, UA parsing tests
+  test_analytics.py    # Analytics, click stats, CSV export, QR code, UA parsing tests
   test_auth.py         # Auth tests (register, login, logout, JWT)
   test_health.py       # Health check and landing page tests
   test_links.py        # Link creation, dashboard, delete tests

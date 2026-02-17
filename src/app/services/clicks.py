@@ -40,9 +40,9 @@ async def lookup_geoip(ip_address: str) -> dict:
                 result = {"country": None, "city": None}
     except Exception:
         logger.warning("GeoIP lookup failed for %s", ip_address)
-        result = {"country": None, "city": None}
+        return {"country": None, "city": None}
 
-    # Cache with size limit
+    # Only cache successful lookups (don't cache transient failures)
     if len(_geoip_cache) < _GEOIP_CACHE_MAX:
         _geoip_cache[ip_address] = result
 

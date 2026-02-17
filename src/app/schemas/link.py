@@ -65,16 +65,3 @@ class LinkCreateRequest(BaseModel):
         if not tags:
             return None
         return ",".join(tags)
-
-
-class LinkResponse(BaseModel):
-    id: int
-    slug: str
-    target_url: str
-    title: str | None
-    tags: str | None
-    click_count: int
-    short_url: str
-    created_at: str
-
-    model_config = {"from_attributes": True}

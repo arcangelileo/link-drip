@@ -151,6 +151,14 @@ class TestRedirect:
         assert response.status_code == 302
         assert response.headers["location"] == "https://example.com/head-target"
 
+        # Verify no click was recorded
+        analytics = await client.get(
+            "/dashboard/links/1/analytics",
+            cookies={"access_token": token},
+        )
+        assert analytics.status_code == 200
+        assert ">0<" in analytics.text or "No clicks yet" in analytics.text
+
     @pytest.mark.asyncio
     async def test_excluded_paths_return_404(self, client):
         """Internal paths like favicon.ico should not resolve as slugs."""

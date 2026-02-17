@@ -35,12 +35,3 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-
-
-class UserResponse(BaseModel):
-    id: int
-    email: str
-    display_name: str
-    plan: str
-
-    model_config = {"from_attributes": True}

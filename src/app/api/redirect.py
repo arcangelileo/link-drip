@@ -39,13 +39,12 @@ async def redirect_to_target(
             status_code=404,
         )
 
-    # Capture metadata
-    ip_address = request.client.host if request.client else None
-    referrer = request.headers.get("referer")
-    user_agent = request.headers.get("user-agent")
-
-    # Record click inline — the 302 redirect is returned immediately to the browser
-    # regardless, so the click recording latency doesn't affect UX
-    await record_click(db, link, ip_address, referrer, user_agent)
+    # Only record clicks for GET requests — HEAD requests from crawlers/preview
+    # tools should not inflate click counts
+    if request.method == "GET":
+        ip_address = request.client.host if request.client else None
+        referrer = request.headers.get("referer")
+        user_agent = request.headers.get("user-agent")
+        await record_click(db, link, ip_address, referrer, user_agent)
 
     return RedirectResponse(url=link.target_url, status_code=302)
