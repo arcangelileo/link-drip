@@ -2,7 +2,7 @@ import datetime
 import logging
 
 import httpx
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from user_agents import parse as parse_ua
 
@@ -39,7 +39,7 @@ async def lookup_geoip(ip_address: str) -> dict:
             else:
                 result = {"country": None, "city": None}
     except Exception:
-        logger.debug("GeoIP lookup failed for %s", ip_address)
+        logger.warning("GeoIP lookup failed for %s", ip_address)
         result = {"country": None, "city": None}
 
     # Cache with size limit
@@ -92,6 +92,12 @@ async def record_click(
     # GeoIP lookup
     geo_info = await lookup_geoip(ip_address or "")
 
+    # Truncate referrer and user_agent to fit DB column sizes
+    if referrer and len(referrer) > 500:
+        referrer = referrer[:500]
+    if user_agent and len(user_agent) > 500:
+        user_agent = user_agent[:500]
+
     click = Click(
         link_id=link.id,
         ip_address=ip_address,
@@ -105,8 +111,10 @@ async def record_click(
     )
     db.add(click)
 
-    # Increment click count on the link
-    link.click_count = link.click_count + 1
+    # Atomic increment of click count to avoid race conditions
+    await db.execute(
+        update(Link).where(Link.id == link.id).values(click_count=Link.click_count + 1)
+    )
 
     await db.commit()
     return click

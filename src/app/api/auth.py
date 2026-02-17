@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.config import settings
 from src.app.database import get_db
 from src.app.dependencies import get_optional_user
 from src.app.models.user import User
@@ -14,6 +15,19 @@ from src.app.services.auth import (
     create_user,
     get_user_by_email,
 )
+
+
+def _set_auth_cookie(response, token: str) -> None:
+    """Set the access_token cookie with appropriate security settings."""
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.debug,
+        max_age=60 * 60 * 24,  # 24 hours
+    )
+
 
 templates = Jinja2Templates(directory="src/app/templates")
 router = APIRouter(tags=["auth"])
@@ -76,14 +90,7 @@ async def register(
     token = create_access_token(user.id)
 
     response = RedirectResponse(url="/dashboard", status_code=302)
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=False,  # Set True in production with HTTPS
-        max_age=60 * 60 * 24,  # 24 hours
-    )
+    _set_auth_cookie(response, token)
     return response
 
 
@@ -134,14 +141,7 @@ async def login(
     token = create_access_token(user.id)
 
     response = RedirectResponse(url="/dashboard", status_code=302)
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=False,
-        max_age=60 * 60 * 24,
-    )
+    _set_auth_cookie(response, token)
     return response
 
 

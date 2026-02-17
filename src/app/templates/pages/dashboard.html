@@ -290,5 +290,12 @@ function copyToClipboard(text, btn) {
         }, 1500);
     });
 }
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.getElementById('create-modal').classList.add('hidden');
+    }
+});
 </script>
 {% endblock %}

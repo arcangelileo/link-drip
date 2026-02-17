@@ -20,6 +20,15 @@ from src.app.services.clicks import (
 templates = Jinja2Templates(directory="src/app/templates")
 router = APIRouter(tags=["analytics"])
 
+_CSV_INJECTION_CHARS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize_csv_field(value: str) -> str:
+    """Prevent CSV injection by escaping fields that start with formula characters."""
+    if value and value[0] in _CSV_INJECTION_CHARS:
+        return "'" + value
+    return value
+
 
 @router.get("/dashboard/links/{link_id}/analytics", response_class=HTMLResponse)
 async def link_analytics(
@@ -69,14 +78,14 @@ async def export_clicks_csv(
     for click in clicks:
         writer.writerow([
             click.clicked_at.isoformat() if click.clicked_at else "",
-            click.ip_address or "",
-            click.country or "",
-            click.city or "",
-            click.referrer or "",
-            click.browser or "",
-            click.os or "",
-            click.device or "",
-            click.user_agent or "",
+            _sanitize_csv_field(click.ip_address or ""),
+            _sanitize_csv_field(click.country or ""),
+            _sanitize_csv_field(click.city or ""),
+            _sanitize_csv_field(click.referrer or ""),
+            _sanitize_csv_field(click.browser or ""),
+            _sanitize_csv_field(click.os or ""),
+            _sanitize_csv_field(click.device or ""),
+            _sanitize_csv_field(click.user_agent or ""),
         ])
 
     output.seek(0)

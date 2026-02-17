@@ -126,6 +126,19 @@ class TestRegister:
         assert "2 characters" in response.text
 
     @pytest.mark.asyncio
+    async def test_register_no_digit(self, client):
+        response = await client.post(
+            "/register",
+            data={
+                "email": "test@example.com",
+                "password": "NoDigitsHere",
+                "display_name": "Test User",
+            },
+        )
+        assert response.status_code == 422
+        assert "digit" in response.text
+
+    @pytest.mark.asyncio
     async def test_register_page_get(self, client):
         response = await client.get("/register")
         assert response.status_code == 200
@@ -183,6 +196,14 @@ class TestLogin:
         assert "Invalid email or password" in response.text
 
     @pytest.mark.asyncio
+    async def test_login_invalid_email_format(self, client):
+        response = await client.post(
+            "/login",
+            data={"email": "not-an-email", "password": "TestPass1"},
+        )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_login_page_get(self, client):
         response = await client.get("/login")
         assert response.status_code == 200
@@ -195,6 +216,33 @@ class TestLogout:
         response = await client.get("/logout", follow_redirects=False)
         assert response.status_code == 302
         assert response.headers["location"] == "/"
+
+    @pytest.mark.asyncio
+    async def test_logout_clears_cookie(self, client):
+        """After logout, the access_token cookie should be deleted."""
+        # Register to get a cookie
+        reg_response = await client.post(
+            "/register",
+            data={
+                "email": "logout-test@example.com",
+                "password": "TestPass1",
+                "display_name": "Logout Tester",
+            },
+            follow_redirects=False,
+        )
+        token = reg_response.cookies.get("access_token")
+        assert token is not None
+
+        # Logout
+        response = await client.get(
+            "/logout",
+            cookies={"access_token": token},
+            follow_redirects=False,
+        )
+        assert response.status_code == 302
+        # The set-cookie header should clear the access_token
+        set_cookie = response.headers.get("set-cookie", "")
+        assert "access_token" in set_cookie
 
 
 class TestAuthRedirects:

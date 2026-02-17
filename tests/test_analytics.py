@@ -3,6 +3,7 @@ import datetime
 import pytest
 from sqlalchemy import select
 
+from src.app.api.analytics import _sanitize_csv_field
 from src.app.models.click import Click
 from src.app.models.link import Link
 from src.app.services.clicks import (
@@ -251,7 +252,7 @@ class TestAnalyticsPage:
     @pytest.mark.asyncio
     async def test_analytics_page_requires_auth(self, client):
         response = await client.get("/dashboard/links/1/analytics")
-        assert response.status_code in (401, 403)
+        assert response.status_code in (302, 401, 403)
 
     @pytest.mark.asyncio
     async def test_analytics_page_wrong_user(self, client):
@@ -325,7 +326,7 @@ class TestCSVExport:
     @pytest.mark.asyncio
     async def test_csv_export_requires_auth(self, client):
         response = await client.get("/dashboard/links/1/export")
-        assert response.status_code in (401, 403)
+        assert response.status_code in (302, 401, 403)
 
     @pytest.mark.asyncio
     async def test_csv_export_wrong_user(self, client):
@@ -412,12 +413,12 @@ class TestQRCode:
     @pytest.mark.asyncio
     async def test_qr_page_requires_auth(self, client):
         response = await client.get("/dashboard/links/1/qr")
-        assert response.status_code in (401, 403)
+        assert response.status_code in (302, 401, 403)
 
     @pytest.mark.asyncio
     async def test_qr_image_requires_auth(self, client):
         response = await client.get("/dashboard/links/1/qr.png")
-        assert response.status_code in (401, 403)
+        assert response.status_code in (302, 401, 403)
 
     @pytest.mark.asyncio
     async def test_qr_page_wrong_user(self, client):
@@ -470,3 +471,141 @@ class TestQRCode:
             cookies={"access_token": token},
         )
         assert response.status_code == 404
+
+
+class TestCSVSanitization:
+    """Test CSV injection prevention."""
+
+    def test_sanitize_normal_value(self):
+        assert _sanitize_csv_field("hello") == "hello"
+
+    def test_sanitize_empty(self):
+        assert _sanitize_csv_field("") == ""
+
+    def test_sanitize_equals(self):
+        assert _sanitize_csv_field("=cmd|'/C calc'!A0") == "'=cmd|'/C calc'!A0"
+
+    def test_sanitize_plus(self):
+        assert _sanitize_csv_field("+cmd|'/C calc'!A0") == "'+cmd|'/C calc'!A0"
+
+    def test_sanitize_minus(self):
+        assert _sanitize_csv_field("-1+1") == "'-1+1"
+
+    def test_sanitize_at(self):
+        assert _sanitize_csv_field("@SUM(A1:A2)") == "'@SUM(A1:A2)"
+
+    def test_sanitize_tab(self):
+        assert _sanitize_csv_field("\tcmd") == "'\tcmd"
+
+
+class TestCSVExportWithData:
+    """Test CSV export with actual click data."""
+
+    async def _register_and_get_token(self, client, email="csvdata@example.com"):
+        response = await client.post(
+            "/register",
+            data={
+                "email": email,
+                "password": "TestPass1",
+                "display_name": "CSV Data User",
+            },
+            follow_redirects=False,
+        )
+        return response.cookies.get("access_token")
+
+    @pytest.mark.asyncio
+    async def test_csv_export_with_clicks(self, client):
+        token = await self._register_and_get_token(client)
+
+        await client.post(
+            "/dashboard/links",
+            data={
+                "target_url": "https://example.com/csv-data",
+                "custom_slug": "csv-data",
+            },
+            cookies={"access_token": token},
+            follow_redirects=False,
+        )
+
+        # Generate some clicks
+        await client.get(
+            "/csv-data",
+            follow_redirects=False,
+            headers={
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+                "referer": "https://twitter.com",
+            },
+        )
+        await client.get(
+            "/csv-data",
+            follow_redirects=False,
+            headers={
+                "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile Safari/604.1",
+            },
+        )
+
+        response = await client.get(
+            "/dashboard/links/1/export",
+            cookies={"access_token": token},
+        )
+        assert response.status_code == 200
+        content = response.text
+        # Header row + 2 data rows
+        lines = [l for l in content.strip().split("\n") if l.strip()]
+        assert len(lines) == 3  # header + 2 clicks
+        assert "Chrome" in content
+        assert "twitter.com" in content
+
+
+class TestAnalyticsPageWithClicks:
+    """Test analytics page rendering with actual click data."""
+
+    async def _register_and_get_token(self, client, email="anaclicks@example.com"):
+        response = await client.post(
+            "/register",
+            data={
+                "email": email,
+                "password": "TestPass1",
+                "display_name": "Analytics Clicks User",
+            },
+            follow_redirects=False,
+        )
+        return response.cookies.get("access_token")
+
+    @pytest.mark.asyncio
+    async def test_analytics_page_with_click_data(self, client):
+        token = await self._register_and_get_token(client)
+
+        await client.post(
+            "/dashboard/links",
+            data={
+                "target_url": "https://example.com/ana-click",
+                "title": "Analytics With Clicks",
+                "custom_slug": "ana-click",
+            },
+            cookies={"access_token": token},
+            follow_redirects=False,
+        )
+
+        # Generate a click with known UA
+        await client.get(
+            "/ana-click",
+            follow_redirects=False,
+            headers={
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "referer": "https://reddit.com/r/test",
+            },
+        )
+
+        response = await client.get(
+            "/dashboard/links/1/analytics",
+            cookies={"access_token": token},
+        )
+        assert response.status_code == 200
+        assert "Analytics With Clicks" in response.text
+        # Should show click data instead of empty state
+        assert "No clicks yet" not in response.text
+        assert "Recent Clicks" in response.text
+        assert "Chrome" in response.text
+        assert "Desktop" in response.text
+        assert "reddit.com" in response.text

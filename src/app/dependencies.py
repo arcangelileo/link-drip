@@ -1,9 +1,15 @@
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.database import get_db
 from src.app.models.user import User
 from src.app.services.auth import decode_access_token, get_user_by_id
+
+
+class AuthRedirect(Exception):
+    """Raised when user needs to be redirected to login page."""
+    pass
 
 
 async def get_current_user(
@@ -12,27 +18,15 @@ async def get_current_user(
 ) -> User:
     token = request.cookies.get("access_token")
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
+        raise AuthRedirect()
     user_id = decode_access_token(token)
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-        )
+        raise AuthRedirect()
     user = await get_user_by_id(db, user_id)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
+        raise AuthRedirect()
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is disabled",
-        )
+        raise AuthRedirect()
     return user
 
 

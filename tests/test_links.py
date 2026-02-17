@@ -1,5 +1,36 @@
 import pytest
 
+from src.app.services.links import encode_base62, generate_slug
+
+
+class TestSlugGeneration:
+    """Test base62 encoding and slug generation."""
+
+    def test_encode_base62_zero(self):
+        assert encode_base62(0) == "0"
+
+    def test_encode_base62_small(self):
+        result = encode_base62(10)
+        assert result == "a"
+
+    def test_encode_base62_large(self):
+        result = encode_base62(100000)
+        assert len(result) >= 3
+
+    def test_generate_slug_consistent(self):
+        slug1 = generate_slug(1)
+        slug2 = generate_slug(1)
+        assert slug1 == slug2
+
+    def test_generate_slug_unique(self):
+        slugs = {generate_slug(i) for i in range(100)}
+        assert len(slugs) == 100  # all unique
+
+    def test_generate_slug_min_length(self):
+        for i in range(10):
+            slug = generate_slug(i)
+            assert len(slug) >= 3
+
 
 class TestLinkCreation:
     async def _register_and_get_token(self, client, email="links@example.com"):
@@ -137,8 +168,8 @@ class TestLinkCreation:
             "/dashboard/links",
             data={"target_url": "https://example.com/test"},
         )
-        # Should get 401 since no token
-        assert response.status_code in (401, 403)
+        # Should redirect to login since no token
+        assert response.status_code in (302, 401, 403)
 
 
 class TestDashboard:
@@ -157,7 +188,7 @@ class TestDashboard:
     @pytest.mark.asyncio
     async def test_dashboard_requires_auth(self, client):
         response = await client.get("/dashboard")
-        assert response.status_code in (401, 403)
+        assert response.status_code in (302, 401, 403)
 
     @pytest.mark.asyncio
     async def test_dashboard_empty_state(self, client):
@@ -304,3 +335,87 @@ class TestDeleteLink:
             cookies={"access_token": token},
         )
         assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_link_wrong_user(self, client):
+        """User cannot delete another user's link (IDOR protection)."""
+        token1 = await self._register_and_get_token(client, email="delowner@example.com")
+
+        # User 1 creates a link
+        await client.post(
+            "/dashboard/links",
+            data={
+                "target_url": "https://example.com/owned",
+                "title": "Owned Link",
+            },
+            cookies={"access_token": token1},
+            follow_redirects=False,
+        )
+
+        # User 2 tries to delete it
+        token2 = await self._register_and_get_token(client, email="delthief@example.com")
+        response = await client.post(
+            "/dashboard/links/1/delete",
+            cookies={"access_token": token2},
+        )
+        assert response.status_code == 404
+
+        # Verify link still exists for user 1
+        dash = await client.get(
+            "/dashboard",
+            cookies={"access_token": token1},
+        )
+        assert "Owned Link" in dash.text
+
+
+class TestDashboardLinkCount:
+    async def _register_and_get_token(self, client, email="count@example.com"):
+        response = await client.post(
+            "/register",
+            data={
+                "email": email,
+                "password": "TestPass1",
+                "display_name": "Count User",
+            },
+            follow_redirects=False,
+        )
+        return response.cookies.get("access_token")
+
+    @pytest.mark.asyncio
+    async def test_link_count_display(self, client):
+        token = await self._register_and_get_token(client)
+
+        # Initially 0 links
+        response = await client.get("/dashboard", cookies={"access_token": token})
+        assert "0 links" in response.text
+
+        # Create 2 links
+        await client.post(
+            "/dashboard/links",
+            data={"target_url": "https://example.com/one"},
+            cookies={"access_token": token},
+            follow_redirects=False,
+        )
+        await client.post(
+            "/dashboard/links",
+            data={"target_url": "https://example.com/two"},
+            cookies={"access_token": token},
+            follow_redirects=False,
+        )
+
+        response = await client.get("/dashboard", cookies={"access_token": token})
+        assert "2 links" in response.text
+
+    @pytest.mark.asyncio
+    async def test_single_link_no_plural(self, client):
+        token = await self._register_and_get_token(client, email="single@example.com")
+
+        await client.post(
+            "/dashboard/links",
+            data={"target_url": "https://example.com/single"},
+            cookies={"access_token": token},
+            follow_redirects=False,
+        )
+
+        response = await client.get("/dashboard", cookies={"access_token": token})
+        assert "1 link " in response.text or "1 link\n" in response.text or "1 link<" in response.text

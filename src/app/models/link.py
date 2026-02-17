@@ -21,4 +21,4 @@ class Link(Base):
     )
 
     owner: Mapped["User"] = relationship("User", back_populates="links")  # noqa: F821
-    clicks: Mapped[list["Click"]] = relationship("Click", back_populates="link", lazy="selectin")  # noqa: F821
+    clicks: Mapped[list["Click"]] = relationship("Click", back_populates="link", lazy="select", cascade="all, delete-orphan")  # noqa: F821

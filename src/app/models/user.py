@@ -22,4 +22,4 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    links: Mapped[list["Link"]] = relationship("Link", back_populates="owner", lazy="selectin")  # noqa: F821
+    links: Mapped[list["Link"]] = relationship("Link", back_populates="owner", lazy="select", cascade="all, delete-orphan")  # noqa: F821

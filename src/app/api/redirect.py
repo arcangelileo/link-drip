@@ -11,7 +11,7 @@ templates = Jinja2Templates(directory="src/app/templates")
 router = APIRouter(tags=["redirect"])
 
 
-@router.get("/{slug}")
+@router.api_route("/{slug}", methods=["GET", "HEAD"])
 async def redirect_to_target(
     slug: str,
     request: Request,
@@ -22,11 +22,14 @@ async def redirect_to_target(
     internal_paths = {
         "dashboard", "login", "register", "logout",
         "health", "static", "docs", "openapi.json", "redoc",
+        "favicon.ico", "robots.txt", "sitemap.xml",
     }
     if slug in internal_paths:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Not found")
+        return templates.TemplateResponse(
+            "pages/404.html",
+            {"request": request},
+            status_code=404,
+        )
 
     link = await get_link_by_slug(db, slug)
     if link is None:

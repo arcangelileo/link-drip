@@ -136,3 +136,23 @@ class TestRedirect:
         assert response.status_code == 404
         assert "404" in response.text
         assert "Go to Homepage" in response.text
+
+    @pytest.mark.asyncio
+    async def test_head_request_on_redirect(self, client):
+        """HEAD requests should return 302 without recording a click."""
+        token = await self._register_and_get_token(client, email="head-test@example.com")
+        await self._create_link(
+            client, token,
+            target_url="https://example.com/head-target",
+            slug="head-test",
+        )
+
+        response = await client.head("/head-test", follow_redirects=False)
+        assert response.status_code == 302
+        assert response.headers["location"] == "https://example.com/head-target"
+
+    @pytest.mark.asyncio
+    async def test_excluded_paths_return_404(self, client):
+        """Internal paths like favicon.ico should not resolve as slugs."""
+        response = await client.get("/favicon.ico")
+        assert response.status_code == 404

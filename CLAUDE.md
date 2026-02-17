@@ -1,6 +1,6 @@
 # LinkDrip
 
-Phase: QA
+Phase: DEPLOYMENT
 
 ## Project Spec
 - **Repo**: https://github.com/arcangelileo/link-drip
@@ -113,8 +113,40 @@ Phase: QA
 - All 68 tests passing (analytics: 25 incl. 8 QR tests, auth: 19, health: 2, links: 15, redirect: 7)
 - All backlog items complete — Phase changed to QA
 
+### Session 6 — QA & POLISH
+- **Test fixes (6 failures → 0):** Auth redirect tests expected 401/403 but app returns 302 redirect to /login — updated assertions to accept 302 as valid auth-required response
+- **Bugs found & fixed:**
+  - Auth cookie used hardcoded `secure=False` — refactored to `_set_auth_cookie()` helper with `secure=not settings.debug` for proper HTTPS handling
+  - Auth dependency raised raw HTTP 401/403 errors (JSON) for browser users — replaced with `AuthRedirect` exception + custom handler that returns 302 → /login
+  - Click count used non-atomic `link.click_count += 1` — replaced with SQL `UPDATE ... SET click_count = click_count + 1` to prevent race conditions
+  - Link/User model relationships used `lazy="selectin"` causing potential N+1 — changed to `lazy="select"` with `cascade="all, delete-orphan"` for proper cleanup
+  - CSV export had no injection protection — added `_sanitize_csv_field()` to escape formula characters (`=`, `+`, `-`, `@`, `\t`, `\r`)
+  - Redirect router didn't exclude `favicon.ico`, `robots.txt`, `sitemap.xml` — added to internal_paths set
+  - GeoIP lookup used `logger.debug` for failures — changed to `logger.warning` for production visibility
+  - Long referrer/user-agent strings could exceed DB column limits — added truncation to 500 chars
+  - Redirect router only accepted GET — added HEAD method support for crawlers/link preview tools
+  - Internal excluded paths returned JSON 404 — now return styled HTML 404 page consistently
+  - Landing page logo not clickable — wrapped in anchor tag linking to `/`
+  - No favicon on any page — added inline SVG favicon to both base.html and dashboard.html layouts
+  - No meta description tag — added SEO meta description to base layout
+  - Dashboard create-link modal couldn't be closed with Escape key — added keydown listener
+- **Global 404 handler:** Added app-level exception handler that returns styled HTML 404 for browser requests (Accept: text/html) and JSON for API clients
+- **Test coverage expanded (68 → 91 tests):**
+  - CSV injection sanitization tests (7 tests for all injection characters)
+  - CSV export with actual click data (verifies header + data rows, content)
+  - Analytics page with click data (verifies non-empty state rendering)
+  - Base62 encoding / slug generation tests (6 tests: zero, small, large, consistency, uniqueness, min length)
+  - Delete link IDOR protection test (user can't delete another user's link)
+  - Dashboard link count display tests (plural/singular, correct count)
+  - HEAD request on redirect test
+  - Excluded paths (favicon.ico) return 404 test
+  - Password-without-digit validation test
+  - Login with invalid email format validation test
+  - Logout clears cookie test
+- **All 91 tests passing** — Phase changed to DEPLOYMENT
+
 ## Known Issues
-(none yet)
+(none — all QA issues resolved)
 
 ## Files Structure
 ```
